@@ -6,6 +6,8 @@ dependencies** — it compiles with the C# compiler that already ships inside Wi
 
 **Final size: ~42 KB single .exe. No runtime install, no NuGet, no bundled codecs.**
 
+**项目仓库 / Repository:** https://github.com/Lvbta/SnapCut
+
 ---
 
 ## Features

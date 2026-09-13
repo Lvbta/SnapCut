@@ -1,4 +1,4 @@
-# SimpleShot AI 插件模型指南
+# SnapCut AI 插件模型指南
 
 本目录用于放置可选的 AI 能力所需文件。**主程序不依赖它们**：目录为空时，
 截图、录屏、长截图等全部功能照常工作，AI 功能自动隐藏或降级。
@@ -6,7 +6,7 @@
 ## 目录结构
 
 ```
-SimpleShot.exe
+SnapCut.exe
 └─ plugins\
    ├─ onnxruntime.dll          # ONNX Runtime 原生库（必需，64 位）
    ├─ MODEL_GUIDE.md           # 本文件
@@ -28,7 +28,7 @@ SimpleShot.exe
 
 - 下载 `microsoft.ml.onnxruntime.<版本>.nupkg`，解压
 - 取 `runtimes\win-x64\native\onnxruntime.dll` 放到 `plugins\`
-- **必须使用 x64 版本**（SimpleShot 在 64 位系统上以 64 位进程运行）
+- **必须使用 x64 版本**（SnapCut 在 64 位系统上以 64 位进程运行）
 
 ## 2. OCR 模型（推荐，全部免费）
 

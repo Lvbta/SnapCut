@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -489,6 +491,8 @@ namespace SimpleShot
             private int _anchorY;        // 左右吸附时中心的纵坐标
             private int _anchorX;        // 上下吸附时中心的横坐标
             private int _hoverBtn = -1;
+            private bool _layered;          // 是否启用分层窗口（每像素 Alpha，圆角真正抗锯齿）
+            private Bitmap _layer;          // 最近一次渲染的位图，用于命中测试时判断透明区
 
             public FloatingBar(MainContext owner)
             {
@@ -541,6 +545,22 @@ namespace SimpleShot
             {
                 base.OnHandleCreated(e);
                 ApplyCaptureAffinity();
+                // 启用分层窗口（每像素 Alpha）→ 圆角边缘真正抗锯齿。失败则退回 Region 方案。
+                try
+                {
+                    int ex = NativeMethods.GetWindowLong(Handle, NativeMethods.GWL_EXSTYLE);
+                    NativeMethods.SetWindowLong(Handle, NativeMethods.GWL_EXSTYLE,
+                        ex | NativeMethods.WS_EX_LAYERED);
+                    _layered = true;
+                    Region = null;
+                    UpdateLayered();
+                }
+                catch
+                {
+                    _layered = false;
+                    Region = null;
+                    UpdateShape();
+                }
             }
 
             /// <summary>
@@ -582,21 +602,17 @@ namespace SimpleShot
                     _anchorX = Math.Max(wa.Left + 80, Math.Min(_anchorX, wa.Right - 80));
                     // 上下吸附：横向条（展开时按钮排成一行）
                     Size = _expanded ? new Size(ExpandedW, BarW) : new Size(TabH, TabW);
-                    using (var gp = MainContext.EdgeRounded(new Rectangle(0, 0, Width - 1, Height - 1),
-                        _expanded ? 14 : 7, _dockSide))
-                        Region = new Region(gp);
                     int x = Math.Max(wa.Left, Math.Min(_anchorX - Width / 2, wa.Right - Width));
                     Location = new Point(x, _dockSide == 2 ? wa.Top : wa.Bottom - Height);
+                    UpdateShape();
                 }
                 else
                 {
                     _anchorY = Math.Max(wa.Top + 80, Math.Min(_anchorY, wa.Bottom - 80));
                     // 左右吸附：纵向条（展开时按钮排成一列）
                     Size = _expanded ? new Size(BarW, ExpandedH) : new Size(TabW, TabH);
-                    using (var gp = MainContext.EdgeRounded(new Rectangle(0, 0, Width - 1, Height - 1),
-                        _expanded ? 14 : 7, _dockSide))
-                        Region = new Region(gp);
                     Location = new Point(_dockSide == 0 ? wa.Left : wa.Right - Width, _anchorY - Height / 2);
+                    UpdateShape();
                 }
             }
 
@@ -761,11 +777,16 @@ namespace SimpleShot
 
             protected override void OnPaint(PaintEventArgs e)
             {
+                if (_layered) return;   // 分层窗口由 UpdateLayered 直接渲染位图，不走常规 Paint
                 var g = e.Graphics;
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                // 显式清底：AllPaintingInWmPaint 下没有擦背景这一步，
-                // 不清理的话圆角外的区域可能是未初始化的画布（表现为黑块）。
                 g.Clear(BackColor);
+                DrawBar(g);
+            }
+
+            /// <summary>绘制悬浮窗内容（不含清底，调用方负责底色）。同时供常规绘制与分层位图复用。</summary>
+            private void DrawBar(Graphics g)
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
 
                 if (!_expanded)
                 {
@@ -930,6 +951,128 @@ namespace SimpleShot
                 }
                 g.Restore(state);
             }
+
+            // ---- 分层窗口渲染（每像素 Alpha → 圆角边缘真正抗锯齿）----
+
+            /// <summary>根据当前状态更新窗体形状：分层模式重绘位图，否则回退 Region 裁切。</summary>
+            private void UpdateShape()
+            {
+                if (IsHandleCreated && _layered)
+                    UpdateLayered();
+                else
+                {
+                    using (var gp = MainContext.EdgeRounded(new Rectangle(0, 0, Width - 1, Height - 1),
+                        _expanded ? 14 : 7, _dockSide))
+                        Region = new Region(gp);
+                }
+            }
+
+            /// <summary>把悬浮窗渲染到 32 位 ARGB 位图并通过 UpdateLayeredWindow 输出（圆角带平滑 Alpha 边缘）。</summary>
+            private void UpdateLayered()
+            {
+                if (!IsHandleCreated || Width <= 0 || Height <= 0) return;
+                IntPtr hDib = IntPtr.Zero;
+                try
+                {
+                    using (var bmp = new Bitmap(Width, Height, PixelFormat.Format32bppArgb))
+                    {
+                        using (var g = Graphics.FromImage(bmp))
+                        {
+                            g.Clear(Color.Transparent);
+                            DrawBar(g);
+                        }
+
+                        var info = new NativeMethods.BITMAPINFO();
+                        info.bmiHeader.biSize = (uint)Marshal.SizeOf(typeof(NativeMethods.BITMAPINFOHEADER));
+                        info.bmiHeader.biWidth = bmp.Width;
+                        info.bmiHeader.biHeight = -bmp.Height;   // top-down
+                        info.bmiHeader.biPlanes = 1;
+                        info.bmiHeader.biBitCount = 32;
+
+                        var screen = NativeMethods.GetDC(IntPtr.Zero);
+                        IntPtr ppvBits;
+                        hDib = NativeMethods.CreateDIBSection(screen, ref info, NativeMethods.DIB_RGB_COLORS,
+                            out ppvBits, IntPtr.Zero, 0);
+                        if (hDib == IntPtr.Zero) return;
+                        var sd = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height),
+                            ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                        // GDI+ 32bppARGB 与 DIB BI_RGB 同为 BGRA 内存布局，可直接逐行拷贝并保留 Alpha
+                        NativeMethods.MoveMemory(ppvBits, sd.Scan0, (IntPtr)(sd.Stride * bmp.Height));
+                        bmp.UnlockBits(sd);
+
+                        var mem = NativeMethods.CreateCompatibleDC(screen);
+                        var old = NativeMethods.SelectObject(mem, hDib);
+                        var size = new NativeMethods.SIZE { cx = bmp.Width, cy = bmp.Height };
+                        var psrc = new NativeMethods.POINT { X = 0, Y = 0 };
+                        var pdst = new NativeMethods.POINT { X = Location.X, Y = Location.Y };
+                        var blend = new NativeMethods.BLENDFUNCTION
+                        {
+                            BlendOp = 0,          // AC_SRC_OVER
+                            BlendFlags = 0,
+                            SourceConstantAlpha = 255,
+                            AlphaFormat = 1       // AC_SRC_ALPHA
+                        };
+                        NativeMethods.UpdateLayeredWindow(Handle, screen, ref pdst, ref size, mem,
+                            ref psrc, 0, ref blend, NativeMethods.ULW_ALPHA);
+                        NativeMethods.SelectObject(mem, old);
+                        NativeMethods.DeleteDC(mem);
+                        NativeMethods.ReleaseDC(IntPtr.Zero, screen);
+
+                        var prev = _layer;
+                        _layer = (Bitmap)bmp.Clone();
+                        if (prev != null) prev.Dispose();
+                    }
+                }
+                catch
+                {
+                    // 分层渲染失败（极少数系统）：退回 Region 方案，至少保证可用
+                    _layered = false;
+                    Region = null;
+                    UpdateShape();
+                }
+                finally
+                {
+                    if (hDib != IntPtr.Zero) NativeMethods.DeleteObject(hDib);
+                }
+            }
+
+            /// <summary>透明像素处放行鼠标（HTTRANSPARENT），让圆角外区域点击穿透到下方窗口。</summary>
+            protected override void WndProc(ref Message m)
+            {
+                const int WM_NCHITTEST = 0x84;
+                if (m.Msg == WM_NCHITTEST && _layered && _layer != null)
+                {
+                    var p = PointToClient(Cursor.Position);
+                    if (p.X >= 0 && p.Y >= 0 && p.X < Width && p.Y < Height && AlphaAt(p.X, p.Y) < 24)
+                    {
+                        m.Result = (IntPtr)(-1);   // HTTRANSPARENT
+                        return;
+                    }
+                }
+                base.WndProc(ref m);
+            }
+
+            /// <summary>读取分层位图在 (x,y) 处的 Alpha 值（0=全透明）。</summary>
+            private int AlphaAt(int x, int y)
+            {
+                if (_layer == null) return 255;
+                var bd = _layer.LockBits(new Rectangle(0, 0, _layer.Width, _layer.Height),
+                    ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                try
+                {
+                    IntPtr row = IntPtr.Add(bd.Scan0, y * bd.Stride);
+                    return Marshal.ReadByte(row, x * 4 + 3);  // BGRA：Alpha 位于第 4 字节
+                }
+                finally { _layer.UnlockBits(bd); }
+            }
+
+            /// <summary>导出当前悬浮窗渲染位图（供 --capture-bar 预览用，不依赖屏幕捕获）。</summary>
+            internal Bitmap RenderSnapshot()
+            {
+                var bmp = new Bitmap(Width, Height, PixelFormat.Format32bppArgb);
+                using (var g = Graphics.FromImage(bmp)) { g.Clear(Color.Transparent); DrawBar(g); }
+                return bmp;
+            }
         }
     }
 
@@ -971,11 +1114,14 @@ namespace SimpleShot
                         bar.ExpandForShot();
                         Application.DoEvents();
                         int pad = 28;
+                        using (var snap = bar.RenderSnapshot())
                         using (var bmp = new Bitmap(bar.Width + pad * 2, bar.Height + pad * 2))
                         {
                             using (var g = Graphics.FromImage(bmp))
+                            {
                                 g.Clear(Color.FromArgb(246, 247, 249));
-                            bar.DrawToBitmap(bmp, new Rectangle(pad, pad, bar.Width, bar.Height));
+                                g.DrawImage(snap, pad, pad);
+                            }
                             bmp.Save(args[1], System.Drawing.Imaging.ImageFormat.Png);
                         }
                         bar.Hide();

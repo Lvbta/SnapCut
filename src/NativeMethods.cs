@@ -116,6 +116,67 @@ namespace SimpleShot
         [DllImport("user32.dll")]
         public static extern int SetWindowLong(IntPtr hWnd, int index, int value);
 
+        // ---- per-pixel-alpha layered window (smooth rounded corners for FloatingBar) ----
+        public const int WS_EX_LAYERED = 0x00080000;
+        public const int ULW_ALPHA = 0x00000002;
+        public const int DIB_RGB_COLORS = 0x00000000;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct SIZE { public int cx, cy; }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct BLENDFUNCTION
+        {
+            public byte BlendOp;       // AC_SRC_OVER (0)
+            public byte BlendFlags;
+            public byte SourceConstantAlpha;
+            public byte AlphaFormat;   // AC_SRC_ALPHA (1)
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct BITMAPINFOHEADER
+        {
+            public uint biSize;
+            public int biWidth, biHeight;
+            public ushort biPlanes, biBitCount;
+            public uint biCompression, biSizeImage;
+            public int biXPelsPerMeter, biYPelsPerMeter;
+            public uint biClrUsed, biClrImportant;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RGBQUAD { public byte rgbBlue, rgbGreen, rgbRed, rgbReserved; }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct BITMAPINFO
+        {
+            public BITMAPINFOHEADER bmiHeader;
+            public RGBQUAD bmiColors;
+        }
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetDC(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+
+        [DllImport("gdi32.dll")]
+        public static extern IntPtr CreateCompatibleDC(IntPtr hdc);
+
+        [DllImport("gdi32.dll")]
+        public static extern bool DeleteDC(IntPtr hdc);
+
+        [DllImport("gdi32.dll")]
+        public static extern IntPtr SelectObject(IntPtr hdc, IntPtr hgdiobj);
+
+        [DllImport("gdi32.dll")]
+        public static extern IntPtr CreateDIBSection(IntPtr hdc, ref BITMAPINFO pbmi, uint iUsage,
+            out IntPtr ppvBits, IntPtr hSection, uint dwOffset);
+
+        [DllImport("user32.dll")]
+        public static extern bool UpdateLayeredWindow(IntPtr hwnd, IntPtr hdcDst, ref POINT pptDst,
+            ref SIZE psize, IntPtr hdcSrc, ref POINT pptSrc, int crKey, ref BLENDFUNCTION pblend, int dwFlags);
+
         // ---- scrolling capture (long screenshot) ----
         [DllImport("user32.dll")]
         public static extern IntPtr WindowFromPoint(POINT p);

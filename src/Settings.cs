@@ -56,7 +56,7 @@ namespace SimpleShot
         // ---- 在线更新 ----
         public bool CheckUpdateOnStartup = true;
         /// <summary>更新清单地址（纯文本 key=value，见 update/manifest.txt）。</summary>
-        public string UpdateUrl = "https://raw.githubusercontent.com/Lvbta/SnapCut/main/update/manifest.txt";
+        public string UpdateUrl = "https://raw.githubusercontent.com/Lvbta/SnapCut/master/update/manifest.txt";
         public string LastUpdateCheck = "";   // 上次检查日期 yyyy-MM-dd
         public string IgnoredVersion = "";    // 用户选择"忽略此版本"的版本号
 
