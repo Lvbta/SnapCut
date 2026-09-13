@@ -206,6 +206,7 @@ namespace SimpleShot
             menu.Items.Add("显示/隐藏悬浮窗  Floating bar", null, delegate { ToggleBar(); });
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("设置  Settings...", null, delegate { OpenSettings(); });
+            menu.Items.Add("检查更新  Check for updates…", null, delegate { CheckUpdateNow(); });
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("关于  About…", null, delegate { OpenChangelog(); });
             menu.Items.Add(new ToolStripSeparator());
@@ -225,6 +226,23 @@ namespace SimpleShot
             _tray.DoubleClick += delegate { ToggleBar(); };
             _tray.BalloonTipClicked += delegate { if (_pendingUpdate != null) OpenUpdateForm(_pendingUpdate); };
             _sharedTray = _tray;
+        }
+
+        /// <summary>托盘菜单"检查更新"：立即拉取清单，有新版弹更新窗，否则提示已是最新 / 失败原因。</summary>
+        private void CheckUpdateNow()
+        {
+            UpdateChecker.MarkChecked();
+            UpdateChecker.CheckAsync(delegate(UpdateInfo info, string err)
+            {
+                BeginInvoke(new Action(delegate
+                {
+                    if (info != null) { OpenUpdateForm(info); return; }
+                    MessageBox.Show(this,
+                        string.IsNullOrEmpty(err) ? "已是最新版本（" + AppMeta.VersionText + "）。"
+                                                  : "检查更新失败：\r\n" + err,
+                        "快截", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }));
+            });
         }
 
         private void OpenSettings()
