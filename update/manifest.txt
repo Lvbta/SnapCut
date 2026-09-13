@@ -1,4 +1,4 @@
-# 快截（SnapCut）在线更新清单
+﻿# 快截（SnapCut）在线更新清单
 #
 # 这是纯文本清单（key=value），放在云端，程序通过 Settings.UpdateUrl 读取它。
 # 只要这里的 version 比用户本机版本新，用户就会收到更新提示（由用户决定是否更新）。
@@ -17,7 +17,8 @@
 #   notes    更新说明，会显示在更新窗口里（可用 \n 换行，也可多行写 notes2/notes3 合并）
 #   size     安装包字节数，可选，用于显示"安装包 27.6 MB"
 
-version=1.2.0
-url=https://github.com/Lvbta/SnapCut/releases/download/v1.2.0/SnapCut-Setup-v1.2.0.exe
+version=1.2.1
+url=https://github.com/Lvbta/SnapCut/releases/download/v1.2.1/SnapCut-Setup-v1.2.1.exe
 notes=首个支持在线更新的版本：启动时检查更新，用户可自行选择是否升级。
-size=28930504
+size=28933393
+

@@ -145,10 +145,11 @@ namespace SimpleShot
         // ---- 在线更新 ----
 
         private UpdateInfo _pendingUpdate;
+        private UpdateForm _updateForm;
 
         /// <summary>
-        /// 每次启动后台检查一次更新。发现新版本只在托盘气泡里提示，
-        /// **是否更新完全由用户决定**，不会自动下载或安装。
+        /// 每次启动后台检查一次更新。发现新版本**自动弹出更新窗并开始下载（带进度条）**，
+        /// 无需用户点击；下载完成后自动静默安装并退出以完成升级。
         /// </summary>
         private void ScheduleUpdateCheck()
         {
@@ -159,25 +160,25 @@ namespace SimpleShot
                 UpdateChecker.CheckAsync(delegate(UpdateInfo info, string err)
                 {
                     if (info == null) return;
-                    BeginInvoke(new Action(delegate
-                    {
-                        _pendingUpdate = info;
-                        Balloon("快截 有新版本 " + info.Version,
-                            "点击查看更新说明，并自行决定是否更新。", ToolTipIcon.Info);
-                    }));
+                    BeginInvoke(new Action(delegate { OpenUpdateForm(info); }));
                 });
             }
             catch { }
         }
 
-        /// <summary>托盘气泡被点击：若有待处理的新版本，打开更新窗。</summary>
-        private void ShowPendingUpdate()
+        /// <summary>打开更新窗（非模态，避免阻塞软件使用）；已打开则置顶。</summary>
+        private void OpenUpdateForm(UpdateInfo info)
         {
-            var info = _pendingUpdate;
             if (info == null) return;
-            _pendingUpdate = null;
-            using (var f = new UpdateForm(info))
-                f.ShowDialog();
+            if (_updateForm != null && !_updateForm.IsDisposed)
+            {
+                _updateForm.BringToFront();
+                return;
+            }
+            _pendingUpdate = info;
+            _updateForm = new UpdateForm(info);
+            _updateForm.FormClosed += delegate { _updateForm = null; };
+            _updateForm.Show();
         }
 
         // ---- 视频转换 ----
@@ -222,7 +223,7 @@ namespace SimpleShot
             _tray.ContextMenuStrip = menu;
             _tray.Visible = true;
             _tray.DoubleClick += delegate { ToggleBar(); };
-            _tray.BalloonTipClicked += delegate { ShowPendingUpdate(); };
+            _tray.BalloonTipClicked += delegate { if (_pendingUpdate != null) OpenUpdateForm(_pendingUpdate); };
             _sharedTray = _tray;
         }
 

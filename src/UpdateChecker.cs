@@ -30,7 +30,7 @@ namespace SimpleShot
 
     /// <summary>
     /// 在线更新：从云端清单（纯文本 key=value）读取最新版本号，与本地版本比对，
-    /// 有新版本时通知用户，**由用户决定是否下载更新**。
+    /// 有新版本时**自动开始下载（带进度条）**，下载完成后自动静默安装并退出以完成升级。
     /// 清单格式见仓库 update/manifest.txt。
     /// </summary>
     internal static class UpdateChecker
@@ -137,7 +137,7 @@ namespace SimpleShot
         }
     }
 
-    /// <summary>发现新版本时的提示窗：展示更新说明，由用户选择更新 / 稍后 / 忽略此版本。</summary>
+    /// <summary>发现新版本时的更新窗：展示更新说明，打开即自动开始下载（带进度条）；用户可稍后或忽略。</summary>
     internal sealed class UpdateForm : Form
     {
         private readonly UpdateInfo _info;
@@ -149,6 +149,7 @@ namespace SimpleShot
         private WebClient _wc;
         private string _file;
         private bool _busy;
+        private bool _allowClose;
 
         public UpdateForm(UpdateInfo info)
         {
@@ -213,14 +214,26 @@ namespace SimpleShot
             _later.Text = "稍后";
             _later.Location = new Point(ClientSize.Width - 20 - 104 - 8 - 84, ClientSize.Height - 46);
             _later.Size = new Size(84, 32);
-            _later.Click += delegate { Close(); };
+            _later.Click += delegate {
+                if (_busy && _wc != null) { try { _wc.CancelAsync(); } catch { } }
+                _allowClose = true;
+                Close();
+            };
 
             _ignore.Text = "忽略此版本";
             _ignore.Location = new Point(20, ClientSize.Height - 46);
             _ignore.Size = new Size(104, 32);
-            _ignore.Click += delegate { UpdateChecker.Ignore(_info.Version); Close(); };
+            _ignore.Click += delegate {
+                if (_wc != null) { try { _wc.CancelAsync(); } catch { } }
+                _allowClose = true;
+                UpdateChecker.Ignore(_info.Version);
+                Close();
+            };
 
             Controls.AddRange(new Control[] { title, sub, notes, _bar, _state, _go, _later, _ignore });
+
+            // 发现新版本后自动开始下载（带进度条），无需用户点击
+            StartDownload();
         }
 
         private void StartDownload()
@@ -271,6 +284,8 @@ namespace SimpleShot
         {
             try
             {
+                _busy = false;
+                _allowClose = true;
                 _bar.Set(100);
                 _state.ForeColor = Ui.TextSub;
                 _state.Text = "下载完成，正在启动安装程序…";
@@ -286,8 +301,8 @@ namespace SimpleShot
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            // 下载进行中不允许关闭（WebClient 还在写文件）
-            if (_busy)
+            // 下载进行中且用户未主动取消/忽略时，不允许关闭（WebClient 还在写文件）
+            if (_busy && !_allowClose)
             {
                 e.Cancel = true;
                 return;
