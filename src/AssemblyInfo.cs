@@ -4,5 +4,5 @@ using System.Reflection;
 [assembly: AssemblyProduct("SnapCut")]
 [assembly: AssemblyCompany("SnapCut")]
 [assembly: AssemblyDescription("快截 - WeChat-style screenshot, scrolling capture, OCR and screen recorder")]
-[assembly: AssemblyVersion("1.2.6")]
-[assembly: AssemblyFileVersion("1.2.6")]
+[assembly: AssemblyVersion("1.2.7")]
+[assembly: AssemblyFileVersion("1.2.7")]

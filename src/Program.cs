@@ -568,27 +568,10 @@ namespace SimpleShot
             protected override void OnHandleCreated(EventArgs e)
             {
                 base.OnHandleCreated(e);
-                ApplyCaptureAffinity();
-                // 启用分层窗口（每像素 Alpha）→ 圆角边缘真正抗锯齿。失败则退回 Region 方案。
-                try
-                {
-                    int ex = NativeMethods.GetWindowLong(Handle, NativeMethods.GWL_EXSTYLE);
-                    NativeMethods.SetWindowLong(Handle, NativeMethods.GWL_EXSTYLE,
-                        ex | NativeMethods.WS_EX_LAYERED);
-                    // 修改扩展样式后必须刷新非客户区，否则某些系统不会真正启用 WS_EX_LAYERED
-                    NativeMethods.SetWindowPos(Handle, IntPtr.Zero, 0, 0, 0, 0,
-                        NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER |
-                        NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED);
-                    _layered = true;
-                    Region = null;
-                    UpdateLayered();
-                }
-                catch
-                {
-                    _layered = false;
-                    Region = null;
-                    UpdateShape();
-                }
+                // 普通窗口 + Region 圆角裁切：不依赖 WS_EX_LAYERED 分层窗口，
+                // 因为它和 WDA_EXCLUDEFROMCAPTURE 组合时会在部分系统上把悬浮窗渲染成空白。
+                // 生产环境不把悬浮窗排除在截图之外，因此也不再设置显示亲和性。
+                UpdateShape();
             }
 
             /// <summary>
@@ -805,8 +788,6 @@ namespace SimpleShot
 
             protected override void OnPaint(PaintEventArgs e)
             {
-                // 分层窗口由 UpdateLayered 直接渲染位图；但若分层尚未成功出过一帧，仍走常规 Paint，避免白屏
-                if (_layered && _layer != null) return;
                 var g = e.Graphics;
                 g.Clear(BackColor);
                 DrawBar(g);
@@ -985,19 +966,14 @@ namespace SimpleShot
                 g.Restore(state);
             }
 
-            // ---- 分层窗口渲染（每像素 Alpha → 圆角边缘真正抗锯齿）----
-
-            /// <summary>根据当前状态更新窗体形状：分层模式重绘位图，否则回退 Region 裁切。</summary>
+            /// <summary>用圆角 Region 裁切出悬浮窗轮廓（贴屏缘一侧直角），并触发重绘。</summary>
             private void UpdateShape()
             {
-                if (IsHandleCreated && _layered)
-                    UpdateLayered();
-                else
-                {
-                    using (var gp = MainContext.EdgeRounded(new Rectangle(0, 0, Width - 1, Height - 1),
-                        _expanded ? 14 : 7, _dockSide))
-                        Region = new Region(gp);
-                }
+                if (!IsHandleCreated) return;
+                using (var gp = MainContext.EdgeRounded(new Rectangle(0, 0, Width - 1, Height - 1),
+                    _expanded ? 14 : 7, _dockSide))
+                    Region = new Region(gp);
+                Invalidate();
             }
 
             /// <summary>把悬浮窗渲染到 32 位 ARGB 位图并通过 UpdateLayeredWindow 输出（圆角带平滑 Alpha 边缘）。</summary>
@@ -1070,19 +1046,8 @@ namespace SimpleShot
                 }
             }
 
-            /// <summary>透明像素处放行鼠标（HTTRANSPARENT），让圆角外区域点击穿透到下方窗口。</summary>
             protected override void WndProc(ref Message m)
             {
-                const int WM_NCHITTEST = 0x84;
-                if (m.Msg == WM_NCHITTEST && _layered && _layer != null)
-                {
-                    var p = PointToClient(Cursor.Position);
-                    if (p.X >= 0 && p.Y >= 0 && p.X < Width && p.Y < Height && AlphaAt(p.X, p.Y) < 24)
-                    {
-                        m.Result = (IntPtr)(-1);   // HTTRANSPARENT
-                        return;
-                    }
-                }
                 base.WndProc(ref m);
             }
 
