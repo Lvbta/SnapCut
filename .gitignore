@@ -14,7 +14,8 @@ plugins/ffmpeg/*.exe
 
 # ===== Media / local data (never source) =====
 videos/
-update/
+update/*
+!update/manifest.txt
 *.mp4
 
 # ===== Third-party reference source (not part of the product) =====

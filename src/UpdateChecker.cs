@@ -118,11 +118,10 @@ namespace SimpleShot
             return r;
         }
 
-        /// <summary>今天是否还没检查过（仅在设置开启时）。</summary>
+        /// <summary>每次启动是否检查更新（仅当设置开启时）；不再按天限流，启动即查。</summary>
         public static bool ShouldAutoCheck()
         {
-            if (!Settings.Current.CheckUpdateOnStartup) return false;
-            return Settings.Current.LastUpdateCheck != DateTime.Now.ToString("yyyy-MM-dd");
+            return Settings.Current.CheckUpdateOnStartup;
         }
 
         public static void MarkChecked()

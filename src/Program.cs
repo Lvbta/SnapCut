@@ -147,7 +147,7 @@ namespace SimpleShot
         private UpdateInfo _pendingUpdate;
 
         /// <summary>
-        /// 启动时后台检查一次更新（每天最多一次）。发现新版本只在托盘气泡里提示，
+        /// 每次启动后台检查一次更新。发现新版本只在托盘气泡里提示，
         /// **是否更新完全由用户决定**，不会自动下载或安装。
         /// </summary>
         private void ScheduleUpdateCheck()
