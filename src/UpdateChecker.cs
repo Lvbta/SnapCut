@@ -1,0 +1,300 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.IO;
+using System.Net;
+using System.Text;
+using System.Threading;
+using System.Windows.Forms;
+
+namespace SimpleShot
+{
+    /// <summary>云端发布的新版本信息（来自 update/manifest.txt）。</summary>
+    internal sealed class UpdateInfo
+    {
+        public string Version = "";
+        public string Url = "";
+        public string Notes = "";
+        public long SizeBytes;
+
+        public string SizeText
+        {
+            get
+            {
+                if (SizeBytes <= 0) return "";
+                return Math.Round(SizeBytes / 1048576.0, 1) + " MB";
+            }
+        }
+    }
+
+    /// <summary>
+    /// 在线更新：从云端清单（纯文本 key=value）读取最新版本号，与本地版本比对，
+    /// 有新版本时通知用户，**由用户决定是否下载更新**。
+    /// 清单格式见仓库 update/manifest.txt。
+    /// </summary>
+    internal static class UpdateChecker
+    {
+        /// <summary>
+        /// 后台检查更新。回调参数：info != null 表示有新版本；否则 error 为失败原因（null 表示无更新）。
+        /// 回调已在调用方线程上执行，调用方自行决定是否需要回到 UI 线程。
+        /// </summary>
+        public static void CheckAsync(Action<UpdateInfo, string> onDone)
+        {
+            var t = new Thread(delegate()
+            {
+                UpdateInfo info = null;
+                string err = null;
+                try
+                {
+                    string url = Settings.Current.UpdateUrl;
+                    if (string.IsNullOrEmpty(url)) { err = "未配置更新地址"; }
+                    else
+                    {
+                        string text;
+                        using (var wc = new WebClient())
+                        {
+                            wc.Encoding = Encoding.UTF8;
+                            // 加时间戳绕过缓存
+                            text = wc.DownloadString(url + (url.IndexOf('?') >= 0 ? "&" : "?")
+                                                     + "t=" + DateTime.Now.Ticks);
+                        }
+                        info = Parse(text);
+                        if (info == null) err = "更新清单无效";
+                        else if (!IsNewer(info.Version, AppMeta.Version)) info = null;   // 已是最新
+                        else if (info.Version == Settings.Current.IgnoredVersion) info = null;  // 用户忽略过
+                    }
+                }
+                catch (Exception ex) { info = null; err = ex.Message; }
+
+                if (onDone != null) onDone(info, err);
+            });
+            t.IsBackground = true;
+            t.Start();
+        }
+
+        /// <summary>解析清单文本（version / url / notes / size）。</summary>
+        internal static UpdateInfo Parse(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return null;
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var raw in text.Split('\n'))
+            {
+                var line = raw.Trim();
+                if (line.Length == 0 || line[0] == '#' || line[0] == ';') continue;
+                int eq = line.IndexOf('=');
+                if (eq <= 0) continue;
+                map[line.Substring(0, eq).Trim()] = line.Substring(eq + 1).Trim();
+            }
+            var info = new UpdateInfo();
+            string v;
+            if (map.TryGetValue("version", out v)) info.Version = v;
+            if (map.TryGetValue("url", out v)) info.Url = v;
+            if (map.TryGetValue("notes", out v)) info.Notes = v;
+            if (map.TryGetValue("size", out v)) long.TryParse(v, out info.SizeBytes);
+            if (string.IsNullOrEmpty(info.Version) || string.IsNullOrEmpty(info.Url)) return null;
+            return info;
+        }
+
+        /// <summary>a 是否比 b 新（按三段版本号逐段比较）。</summary>
+        public static bool IsNewer(string a, string b)
+        {
+            var va = Split(a);
+            var vb = Split(b);
+            for (int i = 0; i < 3; i++)
+                if (va[i] != vb[i]) return va[i] > vb[i];
+            return false;
+        }
+
+        private static int[] Split(string v)
+        {
+            var r = new int[3];
+            var p = (v ?? "").TrimStart('v', 'V').Split('.');
+            for (int i = 0; i < 3 && i < p.Length; i++)
+            {
+                int n;
+                if (int.TryParse(p[i], out n)) r[i] = n;
+            }
+            return r;
+        }
+
+        /// <summary>今天是否还没检查过（仅在设置开启时）。</summary>
+        public static bool ShouldAutoCheck()
+        {
+            if (!Settings.Current.CheckUpdateOnStartup) return false;
+            return Settings.Current.LastUpdateCheck != DateTime.Now.ToString("yyyy-MM-dd");
+        }
+
+        public static void MarkChecked()
+        {
+            Settings.Current.LastUpdateCheck = DateTime.Now.ToString("yyyy-MM-dd");
+            Settings.Current.Save();
+        }
+
+        public static void Ignore(string version)
+        {
+            Settings.Current.IgnoredVersion = version;
+            Settings.Current.Save();
+        }
+    }
+
+    /// <summary>发现新版本时的提示窗：展示更新说明，由用户选择更新 / 稍后 / 忽略此版本。</summary>
+    internal sealed class UpdateForm : Form
+    {
+        private readonly UpdateInfo _info;
+        private readonly PillButton _go = new PillButton();
+        private readonly PillButton _later = new PillButton();
+        private readonly PillButton _ignore = new PillButton();
+        private readonly ModernProgress _bar = new ModernProgress();
+        private readonly Label _state = new Label();
+        private WebClient _wc;
+        private string _file;
+        private bool _busy;
+
+        public UpdateForm(UpdateInfo info)
+        {
+            _info = info;
+            Text = "发现新版本";
+            StartPosition = FormStartPosition.CenterScreen;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            ClientSize = new Size(460, 300);
+            BackColor = Ui.Bg;
+            Font = Ui.Body;
+            Icon = AppIcon.Create(16);
+
+            var title = new Label
+            {
+                Text = "新版本 " + info.Version,
+                Location = new Point(20, 18),
+                Font = Ui.Title,
+                ForeColor = Ui.Text,
+                AutoSize = true
+            };
+            var sub = new Label
+            {
+                Text = "当前版本 " + AppMeta.VersionText
+                     + (info.SizeText.Length > 0 ? "　·　安装包 " + info.SizeText : ""),
+                Location = new Point(22, 48),
+                Font = Ui.Sub,
+                ForeColor = Ui.TextSub,
+                AutoSize = true
+            };
+
+            var notes = new TextBox
+            {
+                Location = new Point(20, 78),
+                Size = new Size(ClientSize.Width - 40, 118),
+                Multiline = true,
+                ReadOnly = true,
+                ScrollBars = ScrollBars.Vertical,
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Ui.CardBg,
+                Text = string.IsNullOrEmpty(info.Notes) ? "（本次更新暂无说明）" : info.Notes
+            };
+
+            _bar.Location = new Point(20, 208);
+            _bar.Size = new Size(ClientSize.Width - 40, 20);
+            _bar.Set(0);
+            _bar.Visible = false;
+
+            _state.Location = new Point(20, 232);
+            _state.Size = new Size(ClientSize.Width - 40, 18);
+            _state.ForeColor = Ui.TextSub;
+            _state.AutoEllipsis = true;
+            _state.Text = "更新包会下载到临时目录，安装程序会自动完成升级。";
+
+            _go.Text = "立即更新";
+            _go.Primary = true;
+            _go.Location = new Point(ClientSize.Width - 20 - 104, ClientSize.Height - 46);
+            _go.Size = new Size(104, 32);
+            _go.Click += delegate { StartDownload(); };
+
+            _later.Text = "稍后";
+            _later.Location = new Point(ClientSize.Width - 20 - 104 - 8 - 84, ClientSize.Height - 46);
+            _later.Size = new Size(84, 32);
+            _later.Click += delegate { Close(); };
+
+            _ignore.Text = "忽略此版本";
+            _ignore.Location = new Point(20, ClientSize.Height - 46);
+            _ignore.Size = new Size(104, 32);
+            _ignore.Click += delegate { UpdateChecker.Ignore(_info.Version); Close(); };
+
+            Controls.AddRange(new Control[] { title, sub, notes, _bar, _state, _go, _later, _ignore });
+        }
+
+        private void StartDownload()
+        {
+            if (_busy) return;
+            _busy = true;
+            _go.Enabled = false;
+            _later.Enabled = false;
+            _ignore.Enabled = false;
+            _bar.Visible = true;
+            _state.Text = "正在下载更新包…";
+
+            _file = Path.Combine(Path.GetTempPath(),
+                "SnapCut-Setup-" + _info.Version + ".exe");
+            try { if (File.Exists(_file)) File.Delete(_file); } catch { }
+
+            _wc = new WebClient();
+            _wc.DownloadProgressChanged += delegate(object s, DownloadProgressChangedEventArgs e)
+            {
+                if (e.TotalBytesToReceive > 0)
+                {
+                    _bar.Set(e.BytesReceived * 100.0 / e.TotalBytesToReceive);
+                    _state.Text = "正在下载… " + Math.Round(e.BytesReceived / 1048576.0, 1) + " / "
+                                  + Math.Round(e.TotalBytesToReceive / 1048576.0, 1) + " MB";
+                }
+            };
+            _wc.DownloadFileCompleted += delegate(object s, System.ComponentModel.AsyncCompletedEventArgs e)
+            {
+                if (e.Cancelled) { Fail("已取消"); return; }
+                if (e.Error != null) { Fail("下载失败：" + e.Error.Message); return; }
+                RunInstaller();
+            };
+            try { _wc.DownloadFileAsync(new Uri(_info.Url), _file); }
+            catch (Exception ex) { Fail(ex.Message); }
+        }
+
+        private void Fail(string msg)
+        {
+            _busy = false;
+            _go.Enabled = true;
+            _later.Enabled = true;
+            _ignore.Enabled = true;
+            _state.ForeColor = Ui.Danger;
+            _state.Text = msg;
+        }
+
+        private void RunInstaller()
+        {
+            try
+            {
+                _bar.Set(100);
+                _state.ForeColor = Ui.TextSub;
+                _state.Text = "下载完成，正在启动安装程序…";
+                // /SILENT：静默安装（本安装包为免管理员的用户级安装，不会弹 UAC）
+                Process.Start(new ProcessStartInfo(_file, "/SILENT /NORESTART"));
+                Application.Exit();   // 退出自身，让安装程序替换文件
+            }
+            catch (Exception ex)
+            {
+                Fail("启动安装程序失败：" + ex.Message);
+            }
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            // 下载进行中不允许关闭（WebClient 还在写文件）
+            if (_busy)
+            {
+                e.Cancel = true;
+                return;
+            }
+            if (_wc != null) { _wc.Dispose(); _wc = null; }
+            base.OnFormClosing(e);
+        }
+    }
+}

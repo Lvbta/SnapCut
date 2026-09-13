@@ -1,0 +1,13 @@
+# Normalize line endings on checkout/commit for cross-platform contributors.
+* text=auto eol=lf
+
+# Binary assets (also covered by .gitignore) — never diff/merge these.
+*.ico binary
+*.onnx binary
+*.dll binary
+*.exe binary
+*.zip binary
+*.png binary
+*.jpg binary
+*.bmp binary
+*.mp4 binary
