@@ -1176,6 +1176,15 @@ namespace SimpleShot
                 }
             }
 
+            // GitHub/raw.githubusercontent 要求 TLS 1.2+；部分旧版 .NET/OS 默认未启用，
+            // 手动开启，避免更新/下载阶段出现"未能创建 SSL/TLS 安全通道"。
+            try
+            {
+                System.Net.ServicePointManager.SecurityProtocol =
+                    System.Net.SecurityProtocolType.Tls12;
+            }
+            catch { }
+
             bool created;
             using (new Mutex(true, "SimpleShot_SingleInstance", out created))
             {
