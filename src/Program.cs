@@ -793,8 +793,9 @@ namespace SimpleShot
                 DrawBar(g);
             }
 
-            /// <summary>绘制悬浮窗内容（不含清底，调用方负责底色）。同时供常规绘制与分层位图复用。</summary>
-            private void DrawBar(Graphics g)
+            /// <summary>绘制悬浮窗内容（不含清底，调用方负责底色）。同时供常规绘制与分层位图复用。
+            /// gdiText=true 时改用 Graphics.DrawString（受变换矩阵影响，便于高清导出时整体按比例缩放）。</summary>
+            private void DrawBar(Graphics g, bool gdiText = false)
             {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
 
@@ -852,9 +853,23 @@ namespace SimpleShot
                             g.FillPath(b, path);
                         DrawGlyph(g, btn.Glyph, btn.Accent, tile);
 
-                        TextRenderer.DrawText(g, btn.Text, LabelFont, label,
-                            hover ? Color.FromArgb(30, 30, 30) : Color.FromArgb(110, 113, 120),
-                            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+                        if (gdiText)
+                        {
+                            using (var sf = new StringFormat
+                            {
+                                Alignment = StringAlignment.Center,
+                                LineAlignment = StringAlignment.Center,
+                                FormatFlags = StringFormatFlags.NoWrap
+                            })
+                            using (var tb = new SolidBrush(hover ? Color.FromArgb(30, 30, 30) : Color.FromArgb(110, 113, 120)))
+                                g.DrawString(btn.Text, LabelFont, tb, label, sf);
+                        }
+                        else
+                        {
+                            TextRenderer.DrawText(g, btn.Text, LabelFont, label,
+                                hover ? Color.FromArgb(30, 30, 30) : Color.FromArgb(110, 113, 120),
+                                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+                        }
                     }
                     catch { }
                 }
@@ -1065,11 +1080,17 @@ namespace SimpleShot
                 finally { _layer.UnlockBits(bd); }
             }
 
-            /// <summary>导出当前悬浮窗渲染位图（供 --capture-bar 预览用，不依赖屏幕捕获）。</summary>
-            internal Bitmap RenderSnapshot()
+            /// <summary>导出当前悬浮窗渲染位图（供 --capture-bar 预览用，不依赖屏幕捕获）。
+            /// scale>1 时按倍数放大渲染，输出高清图，避免网页放大后发虚。</summary>
+            internal Bitmap RenderSnapshot(float scale = 2f)
             {
-                var bmp = new Bitmap(Width, Height, PixelFormat.Format32bppArgb);
-                using (var g = Graphics.FromImage(bmp)) { g.Clear(Color.Transparent); DrawBar(g); }
+                var bmp = new Bitmap((int)(Width * scale), (int)(Height * scale), PixelFormat.Format32bppArgb);
+                using (var g = Graphics.FromImage(bmp))
+                {
+                    g.Clear(Color.Transparent);
+                    g.ScaleTransform(scale, scale);   // 几何、线宽、圆角、文本统一按比例放大
+                    DrawBar(g, true);
+                }
                 return bmp;
             }
         }
@@ -1099,8 +1120,7 @@ namespace SimpleShot
             }
 
             // 导出悬浮窗预览图：SnapCut.exe --capture-bar <out.png>
-            // 悬浮窗被 WDA_EXCLUDEFROMCAPTURE 排除在屏幕捕获之外（避免污染用户截图），
-            // 所以出图不能靠截屏，只能用 DrawToBitmap 直接渲染控件。
+            // 导出设置窗口预览图：SnapCut.exe --capture-settings <out.png>
             if (args != null && args.Length >= 2 && args[0] == "--capture-bar")
             {
                 try
@@ -1113,13 +1133,14 @@ namespace SimpleShot
                         bar.ExpandForShot();
                         Application.DoEvents();
                         int pad = 28;
-                        using (var snap = bar.RenderSnapshot())
-                        using (var bmp = new Bitmap(bar.Width + pad * 2, bar.Height + pad * 2))
+                        float s = 2f;
+                        using (var snap = bar.RenderSnapshot(s))
+                        using (var bmp = new Bitmap((int)((bar.Width + pad * 2) * s), (int)((bar.Height + pad * 2) * s)))
                         {
                             using (var g = Graphics.FromImage(bmp))
                             {
                                 g.Clear(Color.FromArgb(246, 247, 249));
-                                g.DrawImage(snap, pad, pad);
+                                g.DrawImage(snap, (int)(pad * s), (int)(pad * s));
                             }
                             bmp.Save(args[1], System.Drawing.Imaging.ImageFormat.Png);
                         }
@@ -1130,6 +1151,33 @@ namespace SimpleShot
                 catch (Exception ex)
                 {
                     Console.WriteLine("capture-bar failed: " + ex.Message);
+                    return;
+                }
+            }
+
+            // 导出设置窗口预览图：SnapCut.exe --capture-settings <out.png>
+            if (args != null && args.Length >= 2 && args[0] == "--capture-settings")
+            {
+                try
+                {
+                    using (var f = new SettingsForm())
+                    {
+                        f.StartPosition = FormStartPosition.Manual;
+                        f.Location = new Point(-30000, -30000);   // 放到屏幕外，避免闪现
+                        f.Show();
+                        Application.DoEvents();
+                        using (var bmp = new Bitmap(f.Width, f.Height))
+                        {
+                            f.DrawToBitmap(bmp, new Rectangle(0, 0, f.Width, f.Height));
+                            bmp.Save(args[1], System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                        f.Hide();
+                    }
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("capture-settings failed: " + ex.Message);
                     return;
                 }
             }
