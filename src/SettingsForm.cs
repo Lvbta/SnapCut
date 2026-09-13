@@ -33,7 +33,6 @@ namespace SimpleShot
         private CheckBox _runAtStartup, _showBar, _copyAfterSave, _captureCursor, _showBorder,
                          _recordAudio, _highlightMouse, _openFolder;
         private NumericUpDown _fps, _jpeg, _scrollDelay, _scrollStep;
-        private CheckBox _barCapture;
         private ComboBox _scrollMethod;
         private HotkeyBox _shotKey, _recKey;
 
@@ -178,10 +177,6 @@ namespace SimpleShot
                 "截图默认保存到系统的\"图片\"文件夹，可在\"截图\"页修改；\r\n" +
                 "视频保存位置与画质在\"录屏\"页调整。\r\n\r\n" +
                 AppMeta.ContactText, 264);
-            // 悬浮窗是否从截图中排除（排除时它在截图/录屏里是黑块）
-            _barCapture = AddCheck(p0, "悬浮窗不出现在截图 / 录屏中", s.BarExcludeFromCapture, 366);
-            AddHint(p0, "取消勾选后，可以把悬浮窗截进图片（用于给别人展示）；\r\n" +
-                        "勾选状态下它在截图与录屏中显示为黑色块，这是系统行为。", 394);
 
             var changelog = new Label
             {
@@ -407,7 +402,6 @@ namespace SimpleShot
             var s = Settings.Current;
             s.RunAtStartup = _runAtStartup.Checked;
             s.ShowFloatingBar = _showBar.Checked;
-            if (_barCapture != null) s.BarExcludeFromCapture = _barCapture.Checked;
             s.SaveFolder = _saveFolder.Text.Trim();
             s.VideoFolder = _videoFolder.Text.Trim();
             s.CopyAfterSave = _copyAfterSave.Checked;

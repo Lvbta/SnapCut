@@ -20,7 +20,7 @@ namespace SimpleShot
         public const string AppNameEn = "SnapCut";
         public const string Author = "Lvbta";
         public const string Email = "z20160108@s.upc.edu.cn";
-        public const string GitHub = "https://github.com/Lvbta";
+        public const string GitHub = "https://github.com/Lvbta/simpleShortCut";
 
         /// <summary>三段式版本号（如 "1.2.0"）。程序集版本是 4 段，这里截掉末位。</summary>
         public static string Version

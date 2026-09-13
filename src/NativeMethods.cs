@@ -116,6 +116,16 @@ namespace SimpleShot
         [DllImport("user32.dll")]
         public static extern int SetWindowLong(IntPtr hWnd, int index, int value);
 
+        public const uint SWP_NOMOVE = 0x0002;
+        public const uint SWP_NOSIZE = 0x0001;
+        public const uint SWP_NOZORDER = 0x0004;
+        public const uint SWP_NOACTIVATE = 0x0010;
+        public const uint SWP_FRAMECHANGED = 0x0020;
+
+        [DllImport("user32.dll")]
+        public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+            int x, int y, int cx, int cy, uint uFlags);
+
         // ---- per-pixel-alpha layered window (smooth rounded corners for FloatingBar) ----
         public const int WS_EX_LAYERED = 0x00080000;
         public const int ULW_ALPHA = 0x00000002;

@@ -476,7 +476,12 @@ namespace SimpleShot
 
             internal enum IconKind { Camera, Scroller, Video, Photo, Convert, Scissors, Gear, Close }
 
-            private static readonly Font LabelFont = new Font("Microsoft YaHei UI", 8f);
+            private static Font CreateLabelFont()
+            {
+                try { return new Font("Microsoft YaHei UI", 8f); }
+                catch { return SystemFonts.MessageBoxFont; }
+            }
+            private static readonly Font LabelFont = CreateLabelFont();
 
             private const int BarW = 64, BtnH = 56, BarPad = 8, TabW = 14, TabH = 110;
 
@@ -552,6 +557,10 @@ namespace SimpleShot
                     int ex = NativeMethods.GetWindowLong(Handle, NativeMethods.GWL_EXSTYLE);
                     NativeMethods.SetWindowLong(Handle, NativeMethods.GWL_EXSTYLE,
                         ex | NativeMethods.WS_EX_LAYERED);
+                    // 修改扩展样式后必须刷新非客户区，否则某些系统不会真正启用 WS_EX_LAYERED
+                    NativeMethods.SetWindowPos(Handle, IntPtr.Zero, 0, 0, 0, 0,
+                        NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER |
+                        NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED);
                     _layered = true;
                     Region = null;
                     UpdateLayered();
@@ -778,7 +787,8 @@ namespace SimpleShot
 
             protected override void OnPaint(PaintEventArgs e)
             {
-                if (_layered) return;   // 分层窗口由 UpdateLayered 直接渲染位图，不走常规 Paint
+                // 分层窗口由 UpdateLayered 直接渲染位图；但若分层尚未成功出过一帧，仍走常规 Paint，避免白屏
+                if (_layered && _layer != null) return;
                 var g = e.Graphics;
                 g.Clear(BackColor);
                 DrawBar(g);
@@ -821,29 +831,33 @@ namespace SimpleShot
 
                 for (int i = 0; i < _btns.Length; i++)
                 {
-                    var btn = _btns[i];
-                    bool hover = i == _hoverBtn;
-                    Rectangle tile, label;
-                    if (Horizontal)
+                    try
                     {
-                        int x = BarPad + i * BtnH;
-                        tile = new Rectangle(x + (BtnH - 32) / 2, (Height - 50) / 2, 32, 32);
-                        label = new Rectangle(x, Height - 21, BtnH, 16);
-                    }
-                    else
-                    {
-                        int y = BarPad + i * BtnH;
-                        tile = new Rectangle((Width - 32) / 2, y + 3, 32, 32);
-                        label = new Rectangle(0, y + 37, Width, 16);
-                    }
-                    using (var path = MainContext.Rounded(tile, 9))
-                    using (var b = new SolidBrush(Color.FromArgb(hover ? 40 : 24, btn.Accent)))
-                        g.FillPath(b, path);
-                    DrawGlyph(g, btn.Glyph, btn.Accent, tile);
+                        var btn = _btns[i];
+                        bool hover = i == _hoverBtn;
+                        Rectangle tile, label;
+                        if (Horizontal)
+                        {
+                            int x = BarPad + i * BtnH;
+                            tile = new Rectangle(x + (BtnH - 32) / 2, (Height - 50) / 2, 32, 32);
+                            label = new Rectangle(x, Height - 21, BtnH, 16);
+                        }
+                        else
+                        {
+                            int y = BarPad + i * BtnH;
+                            tile = new Rectangle((Width - 32) / 2, y + 3, 32, 32);
+                            label = new Rectangle(0, y + 37, Width, 16);
+                        }
+                        using (var path = MainContext.Rounded(tile, 9))
+                        using (var b = new SolidBrush(Color.FromArgb(hover ? 40 : 24, btn.Accent)))
+                            g.FillPath(b, path);
+                        DrawGlyph(g, btn.Glyph, btn.Accent, tile);
 
-                    TextRenderer.DrawText(g, btn.Text, LabelFont, label,
-                        hover ? Color.FromArgb(30, 30, 30) : Color.FromArgb(110, 113, 120),
-                        TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+                        TextRenderer.DrawText(g, btn.Text, LabelFont, label,
+                            hover ? Color.FromArgb(30, 30, 30) : Color.FromArgb(110, 113, 120),
+                            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+                    }
+                    catch { }
                 }
             }
 
@@ -1030,6 +1044,7 @@ namespace SimpleShot
                     _layered = false;
                     Region = null;
                     UpdateShape();
+                    Invalidate();   // 强制走常规 OnPaint 重绘，确保按钮可见
                 }
                 finally
                 {
