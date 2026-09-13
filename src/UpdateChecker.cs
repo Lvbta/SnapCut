@@ -47,30 +47,58 @@ namespace SimpleShot
                 string err = null;
                 try
                 {
-                    string url = Settings.Current.UpdateUrl;
-                    if (string.IsNullOrEmpty(url)) { err = "未配置更新地址"; }
-                    else
+                    // 候选清单地址：用户配置优先，再叠加多镜像兜底，任一可达即可，
+                    // 单点域名（如 raw.githubusercontent.com 国内常超时）不可达不再导致"永远收不到更新"。
+                    var candidates = new List<string>();
+                    string cfg = Settings.Current.UpdateUrl;
+                    if (!string.IsNullOrEmpty(cfg)) candidates.Add(cfg);
+                    candidates.Add("https://cdn.jsdelivr.net/gh/Lvbta/SnapCut@master/update/manifest.txt");
+                    candidates.Add("https://raw.githubusercontent.com/Lvbta/SnapCut/master/update/manifest.txt");
+
+                    string text = null;
+                    using (var wc = new WebClient())
                     {
-                        string text;
-                        using (var wc = new WebClient())
+                        wc.Encoding = Encoding.UTF8;
+                        foreach (var baseUrl in candidates)
                         {
-                            wc.Encoding = Encoding.UTF8;
-                            // 加时间戳绕过缓存
-                            text = wc.DownloadString(url + (url.IndexOf('?') >= 0 ? "&" : "?")
-                                                     + "t=" + DateTime.Now.Ticks);
+                            try
+                            {
+                                // 加时间戳绕过缓存
+                                text = wc.DownloadString(baseUrl + (baseUrl.IndexOf('?') >= 0 ? "&" : "?")
+                                                                 + "t=" + DateTime.Now.Ticks);
+                                info = Parse(text);
+                                if (info != null) break;   // 解析成功即采用
+                            }
+                            catch { }
                         }
-                        info = Parse(text);
-                        if (info == null) err = "更新清单无效";
-                        else if (!IsNewer(info.Version, AppMeta.Version)) info = null;   // 已是最新
-                        else if (info.Version == Settings.Current.IgnoredVersion) info = null;  // 用户忽略过
                     }
+                    if (info == null)
+                    {
+                        err = "无法获取更新清单（所有镜像均不可达）";
+                        Log(err);
+                    }
+                    else if (!IsNewer(info.Version, AppMeta.Version)) info = null;   // 已是最新
+                    else if (info.Version == Settings.Current.IgnoredVersion) info = null;  // 用户忽略过
                 }
-                catch (Exception ex) { info = null; err = ex.Message; }
+                catch (Exception ex) { info = null; err = ex.Message; Log(err); }
 
                 if (onDone != null) onDone(info, err);
             });
             t.IsBackground = true;
             t.Start();
+        }
+
+        /// <summary>把更新检查失败原因写入 %LocalAppData%\SnapCut\update.log，便于事后排查"为什么没更新"。</summary>
+        private static void Log(string msg)
+        {
+            try
+            {
+                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SnapCut");
+                Directory.CreateDirectory(dir);
+                File.AppendAllText(Path.Combine(dir, "update.log"),
+                    DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + msg + "\r\n");
+            }
+            catch { }
         }
 
         /// <summary>解析清单文本（version / url / notes / size）。</summary>

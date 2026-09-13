@@ -17,10 +17,11 @@
 #   notes    更新说明，会显示在更新窗口里（可用 \n 换行，也可多行写 notes2/notes3 合并）
 #   size     安装包字节数，可选，用于显示"安装包 27.6 MB"
 
-version=1.2.3
-url=https://github.com/Lvbta/SnapCut/releases/download/v1.2.3/SnapCut-Setup-v1.2.3.exe
-notes=fix: 设置页 GitHub 链接对齐真实仓库 Lvbta/SnapCut（修复 404）
-size=28932655
+version=1.2.4
+url=https://github.com/Lvbta/SnapCut/releases/download/v1.2.4/SnapCut-Setup-v1.2.4.exe
+notes=fix: 更新机制加固——默认清单地址改 jsDelivr CDN，多镜像兜底，检查失败写日志不再静默
+size=28932044
+
 
 
 

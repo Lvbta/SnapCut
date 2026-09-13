@@ -55,8 +55,12 @@ namespace SimpleShot
 
         // ---- 在线更新 ----
         public bool CheckUpdateOnStartup = true;
-        /// <summary>更新清单地址（纯文本 key=value，见 update/manifest.txt）。</summary>
-        public string UpdateUrl = "https://raw.githubusercontent.com/Lvbta/SnapCut/master/update/manifest.txt";
+        /// <summary>
+        /// 更新清单地址（纯文本 key=value，见 update/manifest.txt）。
+        /// 默认用 jsDelivr CDN（国内稳定可达）；UpdateChecker 还会自动附加 raw.githubusercontent
+        /// 等镜像兜底，任一可达即可，单点域名不可达不再导致"永远收不到更新"。
+        /// </summary>
+        public string UpdateUrl = "https://cdn.jsdelivr.net/gh/Lvbta/SnapCut@master/update/manifest.txt";
         public string LastUpdateCheck = "";   // 上次检查日期 yyyy-MM-dd
         public string IgnoredVersion = "";    // 用户选择"忽略此版本"的版本号
 
