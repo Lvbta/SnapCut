@@ -17,10 +17,11 @@
 #   notes    更新说明，会显示在更新窗口里（可用 \n 换行，也可多行写 notes2/notes3 合并）
 #   size     安装包字节数，可选，用于显示"安装包 27.6 MB"
 
-version=1.2.5
-url=https://github.com/Lvbta/SnapCut/releases/download/v1.2.5/SnapCut-Setup-v1.2.5.exe
-notes=feat: 托盘右键菜单新增
-size=28932644
+version=1.2.6
+url=https://github.com/Lvbta/SnapCut/releases/download/v1.2.6/SnapCut-Setup-v1.2.6.exe
+notes=fix: 修复设置页检查更新链接被关于说明文字遮挡的问题
+size=28934391
+
 
 
 

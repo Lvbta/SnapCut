@@ -172,16 +172,17 @@ namespace SimpleShot
                 Text = AppMeta.AppName + " " + AppMeta.AppNameEn + "  " + AppMeta.VersionText,
                 Location = new Point(26, 240), AutoSize = true, ForeColor = TextMain
             });
-            AddHint(p0,
+            var aboutHint = AddHint(p0,
                 "免费、绿色的截图 / 长截图 / 录屏 / 视频转换工具。\r\n" +
                 "截图默认保存到系统的\"图片\"文件夹，可在\"截图\"页修改；\r\n" +
                 "视频保存位置与画质在\"录屏\"页调整。\r\n\r\n" +
                 AppMeta.ContactText, 264);
+            int linkY = aboutHint.Bottom + 16;
 
             var changelog = new Label
             {
                 Text = "查看更新日志",
-                Location = new Point(26, 336), AutoSize = true,
+                Location = new Point(26, linkY), AutoSize = true,
                 ForeColor = Accent, Cursor = Cursors.Hand
             };
             changelog.Click += delegate { OpenChangelog(); };
@@ -190,7 +191,7 @@ namespace SimpleShot
             var checkUpd = new Label
             {
                 Text = "检查更新",
-                Location = new Point(140, 336), AutoSize = true,
+                Location = new Point(140, linkY), AutoSize = true,
                 ForeColor = Accent, Cursor = Cursors.Hand
             };
             checkUpd.Click += delegate { CheckUpdateNow(); };
@@ -526,17 +527,19 @@ namespace SimpleShot
         }
 
         /// <summary>添加灰色小字提示（支持多行）。</summary>
-        private void AddHint(Control parent, string text, int top)
+        private Label AddHint(Control parent, string text, int top)
         {
             var l = new Label
             {
                 Text = text,
                 Location = new Point(26, top),
                 AutoSize = true,
+                MaximumSize = new Size(parent.ClientSize.Width - 52, 0),
                 ForeColor = TextSub,
                 Font = new Font("Microsoft YaHei UI", 8.5f)
             };
             parent.Controls.Add(l);
+            return l;
         }
 
         // ---------------- 导航胶囊项 ----------------
