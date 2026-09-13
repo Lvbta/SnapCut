@@ -47,13 +47,14 @@ namespace SimpleShot
                 string err = null;
                 try
                 {
-                    // 候选清单地址：用户配置优先，再叠加多镜像兜底，任一可达即可，
-                    // 单点域名（如 raw.githubusercontent.com 国内常超时）不可达不再导致"永远收不到更新"。
+                    // 候选清单地址：用户配置优先。
+                    // 优先走 raw.githubusercontent.com（源站，发布后立即生效），
+                    // jsdelivr 做国内兜底；但 CDN 可能缓存旧文件，所以不能把它放第一位。
                     var candidates = new List<string>();
                     string cfg = Settings.Current.UpdateUrl;
                     if (!string.IsNullOrEmpty(cfg)) candidates.Add(cfg);
-                    candidates.Add("https://cdn.jsdelivr.net/gh/Lvbta/SnapCut@master/update/manifest.txt");
                     candidates.Add("https://raw.githubusercontent.com/Lvbta/SnapCut/master/update/manifest.txt");
+                    candidates.Add("https://cdn.jsdelivr.net/gh/Lvbta/SnapCut@master/update/manifest.txt");
 
                     string text = null;
                     using (var wc = new WebClient())

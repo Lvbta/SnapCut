@@ -17,10 +17,11 @@
 #   notes    更新说明，会显示在更新窗口里（可用 \n 换行，也可多行写 notes2/notes3 合并）
 #   size     安装包字节数，可选，用于显示"安装包 27.6 MB"
 
-version=1.2.8
-url=https://github.com/Lvbta/SnapCut/releases/download/v1.2.8/SnapCut-Setup-v1.2.8.exe
-notes=feat: 移除更新日志入口，设置页与托盘加入官网链接
-size=28931875
+version=1.2.9
+url=https://github.com/Lvbta/SnapCut/releases/download/v1.2.9/SnapCut-Setup-v1.2.9.exe
+notes=fix: 更新检查改为 GitHub raw 优先，避免 jsdelivr 缓存导致检测不到更新
+size=28933709
+
 
 
 
