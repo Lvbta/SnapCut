@@ -13,14 +13,16 @@ if (-not $ghPath) { $ghPath = "C:\Program Files\GitHub CLI\gh.exe" }
 if (-not (Test-Path $ghPath)) { throw "gh not found. Install GitHub CLI and run gh auth login." }
 
 $root  = $PSScriptRoot
-$ver   = (Get-Content (Join-Path $root "version.txt") -Raw).Trim()
-$setup = Join-Path $root ("build\SnapCut-Setup-v" + $ver + ".exe")
-$zip   = Join-Path $root ("build\SnapCut-v" + $ver + "-portable.zip")
 
 if ($Build) {
     Write-Host "Building and bumping version..." -ForegroundColor Cyan
     & powershell -ExecutionPolicy Bypass -File (Join-Path $root "build.ps1") -Bump -Message $Message
 }
+
+# 必须在构建/升版本之后读取，否则拿到的是升版前的旧版本号
+$ver   = (Get-Content (Join-Path $root "version.txt") -Raw).Trim()
+$setup = Join-Path $root ("build\SnapCut-Setup-v" + $ver + ".exe")
+$zip   = Join-Path $root ("build\SnapCut-v" + $ver + "-portable.zip")
 
 if (-not (Test-Path $setup)) { throw "Setup not found: $setup. Build first (.\build.ps1 -Bump)." }
 $size = (Get-Item $setup).Length

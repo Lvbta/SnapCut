@@ -129,16 +129,16 @@ namespace SimpleShot
                 y += 44;
             }
 
-            // 侧栏底部：更新日志（链接样式）
+            // 侧栏底部：官网（链接样式）
             var log = new Label
             {
-                Text = "更新日志",
+                Text = "官网",
                 Location = new Point(20, ClientSize.Height - 36),
                 AutoSize = true,
                 ForeColor = Accent,
                 Cursor = Cursors.Hand
             };
-            log.Click += delegate { OpenChangelog(); };
+            log.Click += delegate { try { System.Diagnostics.Process.Start("https://lvbta.github.io/SnapCut/"); } catch { } };
             sb.Controls.Add(log);
         }
 
@@ -179,19 +179,10 @@ namespace SimpleShot
                 AppMeta.ContactText, 264);
             int linkY = aboutHint.Bottom + 16;
 
-            var changelog = new Label
-            {
-                Text = "查看更新日志",
-                Location = new Point(26, linkY), AutoSize = true,
-                ForeColor = Accent, Cursor = Cursors.Hand
-            };
-            changelog.Click += delegate { OpenChangelog(); };
-            p0.Controls.Add(changelog);
-
             var checkUpd = new Label
             {
                 Text = "检查更新",
-                Location = new Point(140, linkY), AutoSize = true,
+                Location = new Point(26, linkY), AutoSize = true,
                 ForeColor = Accent, Cursor = Cursors.Hand
             };
             checkUpd.Click += delegate { CheckUpdateNow(); };
@@ -360,12 +351,6 @@ namespace SimpleShot
             gp.AddArc(r.X, r.Bottom - rad * 2, rad * 2, rad * 2, 90, 90);
             gp.CloseFigure();
             return gp;
-        }
-
-        private void OpenChangelog()
-        {
-            using (var f = new ChangelogForm())
-                f.ShowDialog(this);
         }
 
         /// <summary>手动检查更新：有新版则弹更新窗，否则提示已是最新 / 失败原因。</summary>

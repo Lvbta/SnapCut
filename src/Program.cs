@@ -208,7 +208,7 @@ namespace SimpleShot
             menu.Items.Add("设置  Settings...", null, delegate { OpenSettings(); });
             menu.Items.Add("检查更新  Check for updates…", null, delegate { CheckUpdateNow(); });
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("关于  About…", null, delegate { OpenChangelog(); });
+            menu.Items.Add("官网  Website", null, delegate { try { System.Diagnostics.Process.Start("https://lvbta.github.io/SnapCut/"); } catch { } });
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("退出  Exit", null, delegate { Application.Exit(); });
 
@@ -261,12 +261,6 @@ namespace SimpleShot
                     }
                 }
             }
-        }
-
-        private void OpenChangelog()
-        {
-            using (var f = new ChangelogForm())
-                f.ShowDialog();
         }
 
         private void OpenImageEditor()
