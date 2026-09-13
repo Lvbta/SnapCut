@@ -17,9 +17,10 @@
 #   notes    更新说明，会显示在更新窗口里（可用 \n 换行，也可多行写 notes2/notes3 合并）
 #   size     安装包字节数，可选，用于显示"安装包 27.6 MB"
 
-version=1.2.2
-url=https://github.com/Lvbta/SnapCut/releases/download/v1.2.2/SnapCut-Setup-v1.2.2.exe
-notes=fix: 修复打包后悬浮窗变白/无按钮；设置页 GitHub 改为仓库链接并移除截图测试选项
-size=28938245
+version=1.2.3
+url=https://github.com/Lvbta/SnapCut/releases/download/v1.2.3/SnapCut-Setup-v1.2.3.exe
+notes=fix: 设置页 GitHub 链接对齐真实仓库 Lvbta/SnapCut（修复 404）
+size=28932655
+
 
 
