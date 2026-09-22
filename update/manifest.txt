@@ -17,10 +17,11 @@
 #   notes    更新说明，会显示在更新窗口里（可用 \n 换行，也可多行写 notes2/notes3 合并）
 #   size     安装包字节数，可选，用于显示"安装包 27.6 MB"
 
-version=1.2.10
-url=https://github.com/Lvbta/SnapCut/releases/download/v1.2.10/SnapCut-Setup-v1.2.10.exe
-notes=fix: 启动时强制启用 TLS 1.2，修复 GitHub 更新包下载失败
-size=28931965
+version=1.2.11
+url=https://github.com/Lvbta/SnapCut/releases/download/v1.2.11/SnapCut-Setup-v1.2.11.exe
+notes=feat: 截图/长图/编辑/OCR/视频转换的输出位置自动记忆上次使用的文件夹
+size=28938650
+
 
 
 

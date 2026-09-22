@@ -53,6 +53,12 @@ namespace SimpleShot
         /// 若需要把悬浮窗截给别人看，把它设为 false。</summary>
         public bool BarExcludeFromCapture = true;
 
+        // ---- 最近使用目录 ----
+        /// <summary>图片类（截图另存为 / 长图 / 编辑器保存 / OCR 文本 / 打开图片）上次所在的文件夹，留空表示还没记录。</summary>
+        public string LastImageDir = "";
+        /// <summary>视频类（转换输出目录 / 选择源视频）上次所在的文件夹，留空表示还没记录。</summary>
+        public string LastVideoDir = "";
+
         // ---- 在线更新 ----
         public bool CheckUpdateOnStartup = true;
         /// <summary>
@@ -104,8 +110,10 @@ namespace SimpleShot
                 }
                 s.RunAtStartup = GetBool(map, "RunAtStartup", s.RunAtStartup);
                 s.SaveFolder = Get(map, "SaveFolder", s.SaveFolder);
+                s.LastImageDir = Get(map, "LastImageDir", s.LastImageDir);
                 s.CopyAfterSave = GetBool(map, "CopyAfterSave", s.CopyAfterSave);
                 s.VideoFolder = Get(map, "VideoFolder", s.VideoFolder);
+                s.LastVideoDir = Get(map, "LastVideoDir", s.LastVideoDir);
                 s.Fps = Clamp(GetInt(map, "Fps", s.Fps), 5, 60);
                 s.JpegQuality = Clamp(GetInt(map, "JpegQuality", s.JpegQuality), 20, 100);
                 s.CaptureCursor = GetBool(map, "CaptureCursor", s.CaptureCursor);
@@ -148,8 +156,10 @@ namespace SimpleShot
                 sb.AppendLine("# SnapCut configuration");
                 sb.AppendLine("RunAtStartup=" + RunAtStartup);
                 sb.AppendLine("SaveFolder=" + SaveFolder);
+                sb.AppendLine("LastImageDir=" + LastImageDir);
                 sb.AppendLine("CopyAfterSave=" + CopyAfterSave);
                 sb.AppendLine("VideoFolder=" + VideoFolder);
+                sb.AppendLine("LastVideoDir=" + LastVideoDir);
                 sb.AppendLine("Fps=" + Fps);
                 sb.AppendLine("JpegQuality=" + JpegQuality);
                 sb.AppendLine("CaptureCursor=" + CaptureCursor);
@@ -181,6 +191,63 @@ namespace SimpleShot
                 File.WriteAllText(ConfigPath, sb.ToString());
             }
             catch { /* non-fatal */ }
+        }
+
+        // ---------------- 最近使用目录 ----------------
+
+        /// <summary>算对话框初始目录：上次位置 → 设置里的默认目录 → 系统目录，逐级回退，保证一定是可用的目录。</summary>
+        private static string StartDir(string remembered, string fallback, Environment.SpecialFolder sysDefault)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(remembered) && Directory.Exists(remembered)) return remembered;
+                if (!string.IsNullOrEmpty(fallback) && Directory.Exists(fallback)) return fallback;
+            }
+            catch { }
+            return Environment.GetFolderPath(sysDefault);
+        }
+
+        /// <summary>图片类对话框的初始目录（截图另存为 / 长图 / 编辑器 / OCR / 打开图片）。</summary>
+        public static string ImageDir()
+        {
+            return StartDir(Current.LastImageDir, Current.SaveFolder, Environment.SpecialFolder.MyPictures);
+        }
+
+        /// <summary>视频类对话框的初始目录（转换输出目录 / 选择源视频）。</summary>
+        public static string VideoDir()
+        {
+            return StartDir(Current.LastVideoDir, Current.VideoFolder, Environment.SpecialFolder.MyVideos);
+        }
+
+        /// <summary>记住图片类本次使用的位置（可传文件路径或目录）。位置没变时不重复写盘。</summary>
+        public static void RememberImageDir(string path) { SetLastDir(path, true); }
+
+        /// <summary>记住视频类本次使用的位置（可传文件路径或目录）。位置没变时不重复写盘。</summary>
+        public static void RememberVideoDir(string path) { SetLastDir(path, false); }
+
+        private static void SetLastDir(string path, bool image)
+        {
+            string dir;
+            try
+            {
+                // 既接受文件（取其所在目录）也接受目录本身
+                dir = Directory.Exists(path) ? path : Path.GetDirectoryName(path);
+            }
+            catch { return; }
+            if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return;
+
+            var s = Current;
+            if (image)
+            {
+                if (string.Equals(s.LastImageDir, dir, StringComparison.OrdinalIgnoreCase)) return;
+                s.LastImageDir = dir;
+            }
+            else
+            {
+                if (string.Equals(s.LastVideoDir, dir, StringComparison.OrdinalIgnoreCase)) return;
+                s.LastVideoDir = dir;
+            }
+            s.Save();
         }
 
         /// <summary>把“开机自动启动”写入/移除 HKCU 的 Run 注册表项（无需管理员权限）。

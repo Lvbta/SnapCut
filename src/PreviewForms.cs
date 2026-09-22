@@ -176,13 +176,14 @@ namespace SimpleShot
             using (var dlg = new SaveFileDialog())
             {
                 dlg.Filter = "PNG 图片|*.png|JPEG 图片|*.jpg";
-                dlg.InitialDirectory = Settings.Current.SaveFolder;
+                dlg.InitialDirectory = Settings.ImageDir();
                 dlg.FileName = "SnapCut_Long_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png";
                 if (dlg.ShowDialog(this) != DialogResult.OK) return;
                 try
                 {
                     string ext = Path.GetExtension(dlg.FileName).ToLowerInvariant();
                     _image.Save(dlg.FileName, ext == ".jpg" || ext == ".jpeg" ? ImageFormat.Jpeg : ImageFormat.Png);
+                    Settings.RememberImageDir(dlg.FileName);
                 }
                 catch (Exception ex)
                 {
@@ -392,12 +393,14 @@ namespace SimpleShot
             using (var dlg = new SaveFileDialog())
             {
                 dlg.Filter = "文本文件|*.txt";
+                dlg.InitialDirectory = Settings.ImageDir();
                 dlg.FileName = "SnapCut_OCR_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".txt";
                 if (dlg.ShowDialog(this) != DialogResult.OK) return;
                 try
                 {
                     string t = string.IsNullOrEmpty(_box.Text) ? _fallback : _box.Text;
                     File.WriteAllText(dlg.FileName, t, new System.Text.UTF8Encoding(true));
+                    Settings.RememberImageDir(dlg.FileName);
                 }
                 catch (Exception ex)
                 {

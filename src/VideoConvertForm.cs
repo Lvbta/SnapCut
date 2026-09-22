@@ -190,7 +190,7 @@ namespace SimpleShot
             _outDir.Size = new Size(card2.Width - 196 - 14 - 72 - 8, 24);
             _outDir.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             _outDir.BorderStyle = BorderStyle.FixedSingle;
-            _outDir.Text = Settings.Current.VideoFolder;
+            _outDir.Text = Settings.VideoDir();
             _outDir.Enabled = false;
 
             var bDir = new PillButton { Text = "浏览…", Location = new Point(card2.Width - 14 - 72, 53), Size = new Size(72, 27), Anchor = AnchorStyles.Top | AnchorStyles.Right };
@@ -199,7 +199,11 @@ namespace SimpleShot
                 using (var d = new FolderBrowserDialog())
                 {
                     if (_outDir.Text.Length > 0 && Directory.Exists(_outDir.Text)) d.SelectedPath = _outDir.Text;
-                    if (d.ShowDialog(this) == DialogResult.OK) _outDir.Text = d.SelectedPath;
+                    if (d.ShowDialog(this) == DialogResult.OK)
+                    {
+                        _outDir.Text = d.SelectedPath;
+                        Settings.RememberVideoDir(d.SelectedPath);
+                    }
                 }
             };
             card2.Controls.AddRange(new Control[] { lFmt, _format, lMode, _mode, _sameDir, _outDir, bDir });
@@ -413,7 +417,9 @@ namespace SimpleShot
                 d.Title = "选择要转换的视频";
                 d.Filter = "视频|*.mp4;*.mkv;*.avi;*.mov;*.wmv;*.flv;*.webm;*.m4v;*.mpg;*.mpeg;*.ts;*.3gp;*.gif|所有文件|*.*";
                 d.Multiselect = true;
+                d.InitialDirectory = Settings.VideoDir();
                 if (d.ShowDialog(this) != DialogResult.OK) return;
+                if (d.FileNames.Length > 0) Settings.RememberVideoDir(d.FileNames[0]);
                 foreach (string f in d.FileNames)
                     if (_list.Items.IndexOf(f) < 0) _list.Items.Add(f);
             }
@@ -541,6 +547,7 @@ namespace SimpleShot
                     {
                         string dir = _sameDir.Checked
                             ? Path.GetDirectoryName(files[0]) : _outDir.Text;
+                        if (!_sameDir.Checked) Settings.RememberVideoDir(dir);
                         if (MessageBox.Show(this, msg + "。\r\n\r\n是否打开输出文件夹？", "快截",
                                 MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
                         {

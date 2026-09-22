@@ -255,8 +255,7 @@ namespace SimpleShot
             {
                 dlg.Filter = "PNG 图片|*.png|JPEG 图片|*.jpg|位图|*.bmp";
                 dlg.FileName = "SnapCut_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png";
-                string dir = Settings.Current.SaveFolder;
-                if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir)) dlg.InitialDirectory = dir;
+                dlg.InitialDirectory = Settings.ImageDir();
                 if (dlg.ShowDialog(this) != DialogResult.OK) return;
                 try
                 {
@@ -265,6 +264,7 @@ namespace SimpleShot
                     if (ext == ".jpg" || ext == ".jpeg") fmt = ImageFormat.Jpeg;
                     else if (ext == ".bmp") fmt = ImageFormat.Bmp;
                     _img.Save(dlg.FileName, fmt);
+                    Settings.RememberImageDir(dlg.FileName);
                 }
                 catch (Exception ex)
                 {

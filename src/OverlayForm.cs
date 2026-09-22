@@ -746,11 +746,8 @@ namespace SimpleShot
             {
                 dlg.Filter = "PNG 图片|*.png|JPEG 图片|*.jpg|位图|*.bmp";
                 dlg.FileName = "SnapCut_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png";
-                // 使用设置里的图片保存位置，目录无效时回退到系统“图片”文件夹
-                string dir = Settings.Current.SaveFolder;
-                if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
-                    dir = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-                dlg.InitialDirectory = dir;
+                // 优先定位到上次保存的位置（无记录时回退到设置里的默认目录）
+                dlg.InitialDirectory = Settings.ImageDir();
                 if (dlg.ShowDialog(this) != DialogResult.OK) return;
                 try
                 {
@@ -761,6 +758,7 @@ namespace SimpleShot
                         if (ext == ".jpg" || ext == ".jpeg") fmt = ImageFormat.Jpeg;
                         else if (ext == ".bmp") fmt = ImageFormat.Bmp;
                         bmp.Save(dlg.FileName, fmt);
+                        Settings.RememberImageDir(dlg.FileName);
                         // “保存后同时复制到剪贴板”设置在这里生效
                         if (Settings.Current.CopyAfterSave) SetClipboardImage(bmp);
                     }

@@ -95,9 +95,9 @@ namespace SimpleShot
             {
                 dlg.Title = "选择要抠图的图片";
                 dlg.Filter = "图片|*.png;*.jpg;*.jpeg;*.bmp|所有文件|*.*";
-                string dir = Settings.Current.SaveFolder;
-                if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir)) dlg.InitialDirectory = dir;
+                dlg.InitialDirectory = Settings.ImageDir();
                 if (dlg.ShowDialog() != DialogResult.OK) return;
+                Settings.RememberImageDir(dlg.FileName);
 
                 var engine = OnnxMatting.Get();
                 if (engine == null)
@@ -128,9 +128,11 @@ namespace SimpleShot
                 string file = null;
                 try
                 {
+                    string dir = Settings.ImageDir();
                     Directory.CreateDirectory(dir);
                     file = Path.Combine(dir, "抠图_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png");
                     edited.Save(file, System.Drawing.Imaging.ImageFormat.Png);
+                    Settings.RememberImageDir(file);
                 }
                 catch { file = null; }
                 try { Clipboard.SetImage(edited); } catch { }
@@ -269,9 +271,9 @@ namespace SimpleShot
             {
                 dlg.Title = "选择要编辑的图片";
                 dlg.Filter = "图片|*.png;*.jpg;*.jpeg;*.bmp|所有文件|*.*";
-                string dir = Settings.Current.SaveFolder;
-                if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir)) dlg.InitialDirectory = dir;
+                dlg.InitialDirectory = Settings.ImageDir();
                 if (dlg.ShowDialog() != DialogResult.OK) return;
+                Settings.RememberImageDir(dlg.FileName);
                 try
                 {
                     using (var src = new Bitmap(dlg.FileName))

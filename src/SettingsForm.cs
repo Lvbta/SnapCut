@@ -388,8 +388,12 @@ namespace SimpleShot
             var s = Settings.Current;
             s.RunAtStartup = _runAtStartup.Checked;
             s.ShowFloatingBar = _showBar.Checked;
+            string oldPic = s.SaveFolder, oldVid = s.VideoFolder;
             s.SaveFolder = _saveFolder.Text.Trim();
             s.VideoFolder = _videoFolder.Text.Trim();
+            // 用户显式改了默认目录时清掉“上次位置”记忆，让新设置立即生效
+            if (!string.Equals(oldPic, s.SaveFolder, StringComparison.OrdinalIgnoreCase)) s.LastImageDir = "";
+            if (!string.Equals(oldVid, s.VideoFolder, StringComparison.OrdinalIgnoreCase)) s.LastVideoDir = "";
             s.CopyAfterSave = _copyAfterSave.Checked;
             s.CaptureCursor = _captureCursor.Checked;
             s.ShowRecordBorder = _showBorder.Checked;
